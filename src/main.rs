@@ -41,8 +41,11 @@ fn main() {
                     _ => continue,
                 }
             None => {
+                let datetime_str = get_datetime(&f).unwrap();
+                let trimmed = datetime_str.trim_matches(char::from(0)).trim();
+                let native_datetime = NaiveDateTime::parse_from_str(trimmed, "%Y:%m:%d %H:%M:%S");
                 pictures.insert(stem.to_string(), Picture {
-                    datetime: NaiveDateTime::parse_from_str(get_datetime(&f).unwrap().as_str(), "%Y:%m:%d %H:%M:%S").unwrap(),
+                    datetime: native_datetime.unwrap(),
                     jpg_path: if ext == "JPG" { Some(f.clone()) } else { None },
                     raf_path: if ext == "RAF" { Some(f.clone()) } else { None },
                 });
