@@ -32,12 +32,14 @@ The binary lands at `target/release/camera-importer` (or
 ## Usage
 
 ```bash
-camera-importer [SOURCE_DIR] [DEST_ROOT]
+camera-importer [OPTIONS] [SOURCE_DIR] [DEST_ROOT]
 camera-importer --help
 ```
 
 - `SOURCE_DIR` — directory scanned **recursively** for photos.
 - `DEST_ROOT` — destination root; files land in `DEST_ROOT/YYYY_MM/YYYYMMDD/`.
+- `-n`, `--dry-run` — show what would be moved without touching any files.
+- `-h`, `--help` — print usage.
 
 Both arguments are optional and positional. When omitted they fall back to
 compiled-in defaults:
@@ -55,7 +57,15 @@ camera-importer
 
 # Custom source and destination
 camera-importer "D:/Card/DCIM" "D:/Photos"
+
+# Preview only — nothing is moved
+camera-importer --dry-run "D:/Card/DCIM" "D:/Photos"
 ```
+
+At the end of a run it prints a summary line — pictures processed, files
+moved, files skipped for a missing timestamp, duplicates ignored, and
+destination conflicts — so you can tell at a glance whether anything needs
+attention.
 
 Order matters: the first argument is always the source, the second the
 destination. Passing a single argument sets only the source; the destination
@@ -112,6 +122,9 @@ time by opening the `.bat` in Notepad.
   — for example the camera's counter rolled over across two import folders — the
   first one seen is kept and the duplicate is reported and left in place, rather
   than one silently overwriting the other.
+- A file whose destination path already exists (e.g. re-importing, or a same-day
+  counter rollover against a photo filed on a previous run) is **not** overwritten;
+  it is reported and left in the source.
 
 Because it *moves* (not copies) files, they are removed from the source
 directory as they are imported. Moves happen on the same drive, so source and
@@ -123,6 +136,7 @@ destination should live on the same volume.
 cargo build            # debug build
 cargo run              # build + run with default paths
 cargo run -- SRC DST   # build + run with custom paths
+cargo test             # unit tests
 cargo clippy           # lints
 ```
 

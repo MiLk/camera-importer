@@ -17,9 +17,12 @@ cargo build --release    # optimized build
 cargo run                # build + run the importer (uses default paths)
 cargo run -- SRC DST     # run with a custom source dir and destination root
 cargo run -- --help      # usage
+cargo run -- --dry-run   # preview moves without touching files
+cargo test               # unit tests (src/lib.rs)
 ```
 
-There are no tests or lints configured. `cargo check` / `cargo clippy` work as usual.
+Unit tests live in `src/lib.rs` and build their own EXIF/RAF fixtures, so no
+sample camera files are needed. `cargo check` / `cargo clippy` work as usual.
 
 ## Paths
 
