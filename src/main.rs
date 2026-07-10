@@ -74,6 +74,11 @@ fn main() {
                 return;
             }
             "-n" | "--dry-run" => dry_run = true,
+            other if other.starts_with('-') && other != "-" => {
+                eprintln!("Unknown option: {}", other);
+                eprintln!("Try '{} --help' for usage.", program);
+                std::process::exit(2);
+            }
             other => positional.push(other),
         }
     }
@@ -105,7 +110,12 @@ fn main() {
         // they must collide here rather than both move and silently overwrite each
         // other at the destination.
         let (stem, ext) = match f.file_stem().zip(f.extension()) {
-            Some((s, e)) => (s.to_string_lossy().to_uppercase(), e.to_string_lossy().to_uppercase()),
+            // Fold case with ASCII rules only: this mirrors how Windows/macOS
+            // filesystems compare names, and avoids Unicode surprises like ß→SS.
+            Some((s, e)) => (
+                s.to_string_lossy().to_ascii_uppercase(),
+                e.to_string_lossy().to_ascii_uppercase(),
+            ),
             None => continue
         };
         if ext != "JPG" && ext != "RAF" {
@@ -137,11 +147,12 @@ fn main() {
                         continue;
                     }
                 };
-                pictures.insert(stem, Picture {
-                    datetime,
-                    jpg_path: if ext == "JPG" { Some(f.clone()) } else { None },
-                    raf_path: if ext == "RAF" { Some(f) } else { None },
-                });
+                let (jpg_path, raf_path) = if ext == "JPG" {
+                    (Some(f), None)
+                } else {
+                    (None, Some(f))
+                };
+                pictures.insert(stem, Picture { datetime, jpg_path, raf_path });
             }
         }
         if i % PROGRESS_INTERVAL == 0 {
@@ -157,17 +168,25 @@ fn main() {
     let mut i = 0;
     let root_target_path = Path::new(dest);
     for (_stem, pic) in pictures {
+        i += 1;
         let subdir = pic.datetime.format(TARGET_SUBDIR_FORMAT).to_string();
         let target_directory = root_target_path.join(&subdir);
         if !dry_run {
             if let Err(e) = fs::create_dir_all(&target_directory) {
-                eprintln!("Warning: cannot create {}: {}; skipping picture", target_directory.display(), e);
+                // Count this picture's files as skipped so the summary still
+                // reconciles with the number of files seen.
+                let n = pic.jpg_path.iter().count() + pic.raf_path.iter().count();
+                eprintln!(
+                    "Warning: cannot create {}: {}; skipping {} file(s)",
+                    target_directory.display(), e, n
+                );
+                move_skipped += n;
                 continue;
             }
         }
         for path in [pic.jpg_path, pic.raf_path].into_iter().flatten() {
+            let target = dest_in_dir(&path, &target_directory);
             if dry_run {
-                let target = target_directory.join(path.file_name().unwrap());
                 if target.exists() {
                     println!("[dry-run] would skip {} (destination exists)", path.display());
                     move_skipped += 1;
@@ -185,7 +204,6 @@ fn main() {
                 }
             }
         }
-        i += 1;
         if i % PROGRESS_INTERVAL == 0 {
             println!("Progress: {}/{}", i, total);
         }

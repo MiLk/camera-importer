@@ -30,7 +30,7 @@ pub fn get_datetime(p: &Path) -> Result<String, String> {
     let ext = p.extension()
         .ok_or_else(|| format!("Unable to retrieve the extension of {}", p.display()))?
         .to_string_lossy()
-        .to_uppercase();
+        .to_ascii_uppercase();
     let exif = match ext.as_str() {
         "RAF" => raf::parse_embedded_jpeg(p)?,
         "JPG" => rexif::parse_file(p).map_err(|e| e.to_string())?,
@@ -39,14 +39,21 @@ pub fn get_datetime(p: &Path) -> Result<String, String> {
     find_datetime(&exif)
 }
 
+/// Path that `src` will occupy once moved into the directory `dir`
+/// (i.e. `dir` joined with `src`'s file name). Callers that only want to
+/// *preview* a move — e.g. `--dry-run` — can use this to compute the same
+/// target `move_file` will, without the two drifting apart.
+pub fn dest_in_dir(src: &Path, dir: &Path) -> PathBuf {
+    dir.join(src.file_name().unwrap_or(src.as_os_str()))
+}
+
 pub fn move_file(src: &Path, dest: &Path) -> Result<(), String> {
     if src.is_dir() {
         return Err("The source must not be a directory".into());
     }
 
     let d: PathBuf = if dest.is_dir() {
-        let filename = src.file_name().unwrap();
-        dest.join(filename)
+        dest_in_dir(src, dest)
     } else {
         dest.to_path_buf()
     };
@@ -127,6 +134,12 @@ mod tests {
         assert_eq!(files.len(), 2);
 
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn dest_in_dir_joins_file_name() {
+        let target = dest_in_dir(Path::new("/cards/a/DSCF1.JPG"), Path::new("/out/2024_05"));
+        assert_eq!(target, Path::new("/out/2024_05/DSCF1.JPG"));
     }
 
     #[test]
