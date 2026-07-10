@@ -1,8 +1,8 @@
 use std::{fs, io};
 use std::path::{Path, PathBuf};
-use rexif::ExifTag;
+use rexif::{ExifData, ExifTag};
 
-mod tiff;
+mod raf;
 
 pub fn collect_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut files: Vec<PathBuf> = Vec::new();
@@ -18,19 +18,24 @@ pub fn collect_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+fn find_datetime(exif: &ExifData) -> Result<String, String> {
+    exif.entries
+        .iter()
+        .find(|e| e.tag == ExifTag::DateTime)
+        .map(|e| e.value.to_string())
+        .ok_or_else(|| "DateTime tag not found".to_string())
+}
+
 pub fn get_datetime(p: &Path) -> Result<String, String> {
     let ext: &str = p.extension()
         .ok_or(format!("Unable to retrieve the extension of {}", p.display()))?
         .to_str().unwrap();
-    match ext {
-        "RAF" => Ok(tiff::get_datetime(&p)?),
-        "JPG" => {
-            let exif = rexif::parse_file(&p).unwrap();
-            let dt = exif.entries.iter().find(|e| e.tag == ExifTag::DateTime);
-            Ok(dt.unwrap().value.to_string())
-        }
-        _ => Err(format!("Unsupported extension {} for file {}", ext, p.display()))
-    }
+    let exif = match ext {
+        "RAF" => raf::parse_embedded_jpeg(p)?,
+        "JPG" => rexif::parse_file(&p).map_err(|e| e.to_string())?,
+        _ => return Err(format!("Unsupported extension {} for file {}", ext, p.display()))
+    };
+    find_datetime(&exif)
 }
 
 pub fn move_file(src: &Path, dest: &Path) -> Result<(), String> {

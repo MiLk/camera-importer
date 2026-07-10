@@ -2,14 +2,16 @@
 name = "camera-importer"
 version = "0.1.0"
 authors = ["Emilien Kenler <hello@emilienkenler.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.19"
-rawloader = "0.36.3"
-rexif = "0.5.1"
+chrono = "0.4.37"
+rexif = "0.7.3"
 
-[patch.crates-io]
-rawloader = { path = "../rawloader" }
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
