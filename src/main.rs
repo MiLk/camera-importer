@@ -77,8 +77,12 @@ fn main() {
     let mut i = 0;
     for f in files {
         i += 1;
+        // Key the stem case-insensitively too: on a case-insensitive filesystem
+        // (Windows, macOS) `DSCF1234.JPG` and `dscf1234.jpg` are the same file, so
+        // they must collide here rather than both move and silently overwrite each
+        // other at the destination.
         let (stem, ext) = match f.file_stem().zip(f.extension()) {
-            Some((s, e)) => (s.to_string_lossy().into_owned(), e.to_string_lossy().to_uppercase()),
+            Some((s, e)) => (s.to_string_lossy().to_uppercase(), e.to_string_lossy().to_uppercase()),
             None => continue
         };
         if ext != "JPG" && ext != "RAF" {

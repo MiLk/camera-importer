@@ -39,8 +39,9 @@ named constants at the top of `src/main.rs`.
 Three source files:
 
 - `src/main.rs` — binary entry point and orchestration. Walks the collected
-  files, groups JPG/RAF pairs into a `Picture` keyed by **file stem** (so
-  `DSCF1234.JPG` and `DSCF1234.RAF` share one `Picture` and land together),
+  files, groups JPG/RAF pairs into a `Picture` keyed by **file stem**
+  (case-insensitive, so `DSCF1234.JPG` and `DSCF1234.RAF` share one `Picture`
+  and land together, and a case-only difference is treated as a collision),
   parses each timestamp once via `get_datetime`, then moves files into
   `datetime.format("%Y_%m/%Y%m%d")` subfolders.
 - `src/lib.rs` (`camera_importer` crate) — reusable helpers: `collect_files`
