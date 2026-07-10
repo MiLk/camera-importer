@@ -95,6 +95,8 @@ fn main() {
 
     println!("Gathering files...");
     let mut pictures: HashMap<String, Picture> = HashMap::new();
+    let mut skipped_no_datetime = 0usize;
+    let mut duplicates = 0usize;
     let mut i = 0;
     for f in files {
         i += 1;
@@ -117,17 +119,23 @@ fn main() {
                     _ => continue,
                 };
                 match slot {
-                    Some(existing) => eprintln!(
-                        "Warning: duplicate {} stem {:?}; keeping {}, ignoring {}",
-                        ext, stem, existing.display(), f.display()
-                    ),
+                    Some(existing) => {
+                        eprintln!(
+                            "Warning: duplicate {} stem {:?}; keeping {}, ignoring {}",
+                            ext, stem, existing.display(), f.display()
+                        );
+                        duplicates += 1;
+                    }
                     None => *slot = Some(f),
                 }
             }
             None => {
                 let datetime = match read_capture_datetime(&f) {
                     Some(dt) => dt,
-                    None => continue,
+                    None => {
+                        skipped_no_datetime += 1;
+                        continue;
+                    }
                 };
                 pictures.insert(stem, Picture {
                     datetime,
@@ -144,6 +152,8 @@ fn main() {
 
     println!("Moving files...");
     let total = pictures.len();
+    let mut moved = 0usize;
+    let mut move_skipped = 0usize;
     let mut i = 0;
     let root_target_path = Path::new(dest);
     for (_stem, pic) in pictures {
@@ -160,11 +170,19 @@ fn main() {
                 let target = target_directory.join(path.file_name().unwrap());
                 if target.exists() {
                     println!("[dry-run] would skip {} (destination exists)", path.display());
+                    move_skipped += 1;
                 } else {
                     println!("[dry-run] would move {} -> {}", path.display(), target.display());
+                    moved += 1;
                 }
-            } else if let Err(e) = move_file(&path, &target_directory) {
-                eprintln!("Warning: skipped {}: {}", path.display(), e);
+            } else {
+                match move_file(&path, &target_directory) {
+                    Ok(()) => moved += 1,
+                    Err(e) => {
+                        eprintln!("Warning: skipped {}: {}", path.display(), e);
+                        move_skipped += 1;
+                    }
+                }
             }
         }
         i += 1;
@@ -173,4 +191,11 @@ fn main() {
         }
     }
     println!("Progress: {}/{}", i, total);
+
+    let verb = if dry_run { "would move" } else { "moved" };
+    println!(
+        "Summary: {} pictures; {} files {}; {} skipped (no timestamp); \
+         {} duplicate(s) ignored; {} destination conflict(s)/error(s)",
+        total, moved, verb, skipped_no_datetime, duplicates, move_skipped
+    );
 }
