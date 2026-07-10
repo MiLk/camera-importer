@@ -46,23 +46,44 @@ fn read_capture_datetime(path: &Path) -> Option<NaiveDateTime> {
     }
 }
 
+fn print_help(program: &str) {
+    println!("Usage: {} [OPTIONS] [SOURCE_DIR] [DEST_ROOT]", program);
+    println!();
+    println!("Organizes Fujifilm JPG/RAF files into a date-partitioned tree.");
+    println!();
+    println!("Options:");
+    println!("  -n, --dry-run   Show what would be moved without touching any files");
+    println!("  -h, --help      Print this help");
+    println!();
+    println!("Arguments:");
+    println!("  SOURCE_DIR   Directory scanned recursively (default: {})", DEFAULT_SOURCE);
+    println!("  DEST_ROOT    Destination root; files land in DEST_ROOT/{} (default: {})",
+             TARGET_SUBDIR_FORMAT, DEFAULT_DEST);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let program = args.first().map(String::as_str).unwrap_or("camera-importer");
 
-    if args.iter().any(|a| a == "-h" || a == "--help") {
-        println!("Usage: {} [SOURCE_DIR] [DEST_ROOT]", program);
-        println!();
-        println!("Organizes Fujifilm JPG/RAF files into a date-partitioned tree.");
-        println!();
-        println!("  SOURCE_DIR   Directory scanned recursively (default: {})", DEFAULT_SOURCE);
-        println!("  DEST_ROOT    Destination root; files land in DEST_ROOT/{} (default: {})",
-                 TARGET_SUBDIR_FORMAT, DEFAULT_DEST);
-        return;
+    let mut positional: Vec<&str> = Vec::new();
+    let mut dry_run = false;
+    for arg in args.iter().skip(1) {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print_help(program);
+                return;
+            }
+            "-n" | "--dry-run" => dry_run = true,
+            other => positional.push(other),
+        }
     }
 
-    let source = args.get(1).map(String::as_str).unwrap_or(DEFAULT_SOURCE);
-    let dest = args.get(2).map(String::as_str).unwrap_or(DEFAULT_DEST);
+    let source = positional.first().copied().unwrap_or(DEFAULT_SOURCE);
+    let dest = positional.get(1).copied().unwrap_or(DEFAULT_DEST);
+
+    if dry_run {
+        println!("Dry run: no files will be moved.");
+    }
 
     let files = match collect_files(Path::new(source)) {
         Ok(files) => files,
@@ -128,12 +149,21 @@ fn main() {
     for (_stem, pic) in pictures {
         let subdir = pic.datetime.format(TARGET_SUBDIR_FORMAT).to_string();
         let target_directory = root_target_path.join(&subdir);
-        if let Err(e) = fs::create_dir_all(&target_directory) {
-            eprintln!("Warning: cannot create {}: {}; skipping picture", target_directory.display(), e);
-            continue;
+        if !dry_run {
+            if let Err(e) = fs::create_dir_all(&target_directory) {
+                eprintln!("Warning: cannot create {}: {}; skipping picture", target_directory.display(), e);
+                continue;
+            }
         }
         for path in [pic.jpg_path, pic.raf_path].into_iter().flatten() {
-            if let Err(e) = move_file(&path, &target_directory) {
+            if dry_run {
+                let target = target_directory.join(path.file_name().unwrap());
+                if target.exists() {
+                    println!("[dry-run] would skip {} (destination exists)", path.display());
+                } else {
+                    println!("[dry-run] would move {} -> {}", path.display(), target.display());
+                }
+            } else if let Err(e) = move_file(&path, &target_directory) {
                 eprintln!("Warning: skipped {}: {}", path.display(), e);
             }
         }
