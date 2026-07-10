@@ -134,7 +134,7 @@ fn main() {
         }
         for path in [pic.jpg_path, pic.raf_path].into_iter().flatten() {
             if let Err(e) = move_file(&path, &target_directory) {
-                eprintln!("Warning: failed to move {}: {}", path.display(), e);
+                eprintln!("Warning: skipped {}: {}", path.display(), e);
             }
         }
         i += 1;

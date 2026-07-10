@@ -51,5 +51,13 @@ pub fn move_file(src: &Path, dest: &Path) -> Result<(), String> {
         dest.to_path_buf()
     };
 
+    // Never clobber an existing file: `fs::rename` replaces the destination
+    // silently, so a re-import (or a same-day counter rollover) could otherwise
+    // overwrite a photo already filed on a previous run. `exists()` is
+    // case-insensitive on Windows/macOS, matching how those filesystems collide.
+    if d.exists() {
+        return Err(format!("destination already exists: {}", d.display()));
+    }
+
     fs::rename(src, d).map_err(|e| e.to_string())
 }
