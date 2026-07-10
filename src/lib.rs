@@ -12,7 +12,7 @@ pub fn collect_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
         if p.is_dir() {
             files.append(&mut collect_files(&p)?);
         } else {
-            files.push(p.canonicalize()?.into());
+            files.push(p.canonicalize()?);
         }
     }
     Ok(files)
@@ -27,12 +27,13 @@ fn find_datetime(exif: &ExifData) -> Result<String, String> {
 }
 
 pub fn get_datetime(p: &Path) -> Result<String, String> {
-    let ext: &str = p.extension()
-        .ok_or(format!("Unable to retrieve the extension of {}", p.display()))?
-        .to_str().unwrap();
-    let exif = match ext {
+    let ext = p.extension()
+        .ok_or_else(|| format!("Unable to retrieve the extension of {}", p.display()))?
+        .to_string_lossy()
+        .to_uppercase();
+    let exif = match ext.as_str() {
         "RAF" => raf::parse_embedded_jpeg(p)?,
-        "JPG" => rexif::parse_file(&p).map_err(|e| e.to_string())?,
+        "JPG" => rexif::parse_file(p).map_err(|e| e.to_string())?,
         _ => return Err(format!("Unsupported extension {} for file {}", ext, p.display()))
     };
     find_datetime(&exif)

@@ -14,19 +14,25 @@ date-partitioned folder tree (`YYYY_MM/YYYYMMDD/`).
 ```bash
 cargo build              # debug build
 cargo build --release    # optimized build
-cargo run                # build + run the importer
+cargo run                # build + run the importer (uses default paths)
+cargo run -- SRC DST     # run with a custom source dir and destination root
+cargo run -- --help      # usage
 ```
 
 There are no tests or lints configured. `cargo check` / `cargo clippy` work as usual.
 
-## Hardcoded paths
+## Paths
 
-Import/export paths are compiled in, not passed as arguments (`src/main.rs`):
+Source and destination are optional positional CLI arguments; when omitted they
+fall back to compiled-in defaults (`src/main.rs`, `DEFAULT_SOURCE` /
+`DEFAULT_DEST`):
 
 - Source (scanned recursively): `F:/Pictures/XT30/Import`
 - Destination root: `F:/Pictures/XT30`
 
-Changing where files are read from or written to means editing these literals.
+Run `camera-importer <SOURCE_DIR> <DEST_ROOT>` to override without recompiling.
+The datetime format, destination sub-directory layout, and progress interval are
+named constants at the top of `src/main.rs`.
 
 ## Architecture
 
@@ -49,6 +55,7 @@ Three source files:
 Timestamps are parsed with the format `%Y:%m:%d %H:%M:%S`; RAF datetime strings
 are trimmed of trailing NUL bytes before parsing.
 
-Only `.JPG` and `.RAF` extensions (uppercase) are handled; other files are
-skipped. Note the code currently `.unwrap()`s metadata parsing, so a file with
-missing/unparseable datetime will panic.
+Only `.JPG` and `.RAF` extensions are handled (matched case-insensitively);
+other files are skipped. A file with missing/unparseable datetime is skipped
+with a warning on stderr rather than aborting the run, as is a file whose stem
+collides with one already collected from another folder.
