@@ -7,8 +7,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.37"
-rexif = "0.7.3"
+chrono = "0.4.45"
+rexif = "0.7.5"
 
 [profile.dev]
 opt-level = 0

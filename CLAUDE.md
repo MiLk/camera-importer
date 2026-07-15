@@ -14,27 +14,37 @@ date-partitioned folder tree (`YYYY_MM/YYYYMMDD/`).
 ```bash
 cargo build              # debug build
 cargo build --release    # optimized build
-cargo run                # build + run the importer
+cargo run                # build + run the importer (uses default paths)
+cargo run -- SRC DST     # run with a custom source dir and destination root
+cargo run -- --help      # usage
+cargo run -- --dry-run   # preview moves without touching files
+cargo test               # unit tests (src/lib.rs)
 ```
 
-There are no tests or lints configured. `cargo check` / `cargo clippy` work as usual.
+Unit tests live in `src/lib.rs` and build their own EXIF/RAF fixtures, so no
+sample camera files are needed. `cargo check` / `cargo clippy` work as usual.
 
-## Hardcoded paths
+## Paths
 
-Import/export paths are compiled in, not passed as arguments (`src/main.rs`):
+Source and destination are optional positional CLI arguments; when omitted they
+fall back to compiled-in defaults (`src/main.rs`, `DEFAULT_SOURCE` /
+`DEFAULT_DEST`):
 
 - Source (scanned recursively): `F:/Pictures/XT30/Import`
 - Destination root: `F:/Pictures/XT30`
 
-Changing where files are read from or written to means editing these literals.
+Run `camera-importer <SOURCE_DIR> <DEST_ROOT>` to override without recompiling.
+The datetime format, destination sub-directory layout, and progress interval are
+named constants at the top of `src/main.rs`.
 
 ## Architecture
 
 Three source files:
 
 - `src/main.rs` — binary entry point and orchestration. Walks the collected
-  files, groups JPG/RAF pairs into a `Picture` keyed by **file stem** (so
-  `DSCF1234.JPG` and `DSCF1234.RAF` share one `Picture` and land together),
+  files, groups JPG/RAF pairs into a `Picture` keyed by **file stem**
+  (case-insensitive, so `DSCF1234.JPG` and `DSCF1234.RAF` share one `Picture`
+  and land together, and a case-only difference is treated as a collision),
   parses each timestamp once via `get_datetime`, then moves files into
   `datetime.format("%Y_%m/%Y%m%d")` subfolders.
 - `src/lib.rs` (`camera_importer` crate) — reusable helpers: `collect_files`
@@ -49,6 +59,7 @@ Three source files:
 Timestamps are parsed with the format `%Y:%m:%d %H:%M:%S`; RAF datetime strings
 are trimmed of trailing NUL bytes before parsing.
 
-Only `.JPG` and `.RAF` extensions (uppercase) are handled; other files are
-skipped. Note the code currently `.unwrap()`s metadata parsing, so a file with
-missing/unparseable datetime will panic.
+Only `.JPG` and `.RAF` extensions are handled (matched case-insensitively);
+other files are skipped. A file with missing/unparseable datetime is skipped
+with a warning on stderr rather than aborting the run, as is a file whose stem
+collides with one already collected from another folder.
